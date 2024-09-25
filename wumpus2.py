@@ -10,7 +10,7 @@ import math
 DIRECCIONES = ['N', 'W', 'S', 'E']  # Norte, Oeste, Sur, Este
 
 class Celda:
-    """Clase que representa cada celda del tablero."""
+    """Clase que representa cada celda del tablero. y nada mas"""
 
     def __init__(self):
         self.agente = False
