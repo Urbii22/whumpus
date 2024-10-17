@@ -1,5 +1,6 @@
 import random
 import math
+import time
 from copy import deepcopy
 from typing import List, Tuple, Union
 
@@ -313,8 +314,14 @@ class Tablerowumpus:
         return self.game_over
 
     def canMoveHoyo(self, hoyo_index: int, new_row: int, new_col: int) -> bool:
+        """
+        Verifica si un hoyo puede moverse a la posición (new_row, new_col).
+        Puede moverse a casillas que sean BLANCO, BRISA o HEDOR, pero no a casillas
+        ocupadas por el ORO, WUMPUS o AGENTE.
+        """
         if 0 <= new_row < self.tamano and 0 <= new_col < self.tamano:
-            if self.matrix[new_row][new_col] == BLANCO:
+            tile = self.matrix[new_row][new_col]
+            if tile in [BLANCO, BRISA, HEDOR, BRISA_HEDOR]:
                 return True
         return False
 
@@ -324,8 +331,18 @@ class Tablerowumpus:
         self.placeTile(old_row, old_col, BLANCO)
 
         # Actualizar las brisas antiguas
-        vecinos_antiguos = self.obtener_vecinos((old_row, old_col))
-        for vec in vecinos_antiguos:
+        self.actualizar_brisa_al_eliminar_hoyo(old_row, old_col)
+
+        # Colocar el hoyo en la nueva posición
+        self.placeTile(new_row, new_col, HOYO)
+        self.pos_hoyos[hoyo_index] = (new_row, new_col)
+
+        # Actualizar las brisas nuevas
+        self.actualizar_brisa_al_agregar_hoyo(new_row, new_col)
+
+    def actualizar_brisa_al_eliminar_hoyo(self, row: int, col: int):
+        vecinos = self.obtener_vecinos((row, col))
+        for vec in vecinos:
             tile = self.matrix[vec[0]][vec[1]]
             if tile == BRISA:
                 self.placeTile(vec[0], vec[1], BLANCO)
@@ -336,13 +353,9 @@ class Tablerowumpus:
             elif tile == BRISA_HEDOR_ORO:
                 self.placeTile(vec[0], vec[1], HEDOR_ORO)
 
-        # Colocar el hoyo en la nueva posición
-        self.placeTile(new_row, new_col, HOYO)
-        self.pos_hoyos[hoyo_index] = (new_row, new_col)
-
-        # Actualizar las brisas nuevas
-        vecinos_nuevos = self.obtener_vecinos((new_row, new_col))
-        for vec in vecinos_nuevos:
+    def actualizar_brisa_al_agregar_hoyo(self, row: int, col: int):
+        vecinos = self.obtener_vecinos((row, col))
+        for vec in vecinos:
             tile = self.matrix[vec[0]][vec[1]]
             if tile == BLANCO:
                 self.placeTile(vec[0], vec[1], BRISA)
@@ -358,12 +371,8 @@ class Tablerowumpus:
             moves = self.getAvailableMovesForMax(*self.pos_agente)
             return len(moves) > 0
         else:  # Min (Hoyos)
-            for hoyo_index, hoyo_pos in enumerate(self.pos_hoyos):
-                vecinos = self.obtener_vecinos(hoyo_pos)
-                for vec in vecinos:
-                    if self.canMoveHoyo(hoyo_index, vec[0], vec[1]):
-                        return True
-            return False
+            moves = self.getAvailableMovesForMin()
+            return len(moves) > 0
 
 # ================================
 # Implementación de la función miniMax
@@ -432,7 +441,7 @@ def miniMax(state: Tablerowumpus, currentLevel: int, maxLevel: int, player: int,
         return (bestState, minValue, stop)
 
 # ================================
-# Ejemplo de Uso
+# Ejecución Automática del Juego
 # ================================
 
 if __name__ == "__main__":
@@ -444,23 +453,52 @@ if __name__ == "__main__":
     print("Tablero inicial:")
     tablero.imprimir_tablero()
 
-    # Parámetros iniciales para la función miniMax
-    currentLevel = 0
+    # Parámetros para la función miniMax
     maxLevel = 3  # Profundidad máxima del árbol de búsqueda
-    player = 1  # Comienza el jugador Max (Agente)
-    alpha = -math.inf
-    beta = math.inf
     stop = False
 
-    # Llamada a la función miniMax
-    bestState, utilityValue, _ = miniMax(tablero, currentLevel, maxLevel, player, alpha, beta, stop)
+    # Bucle para ejecutar el juego automáticamente
+    while not tablero.isGameOver():
+        # Agregar un retraso para observar mejor la ejecución
+        time.sleep(2)  # Retraso de 2 segundos entre cada turno
 
-    print("Mejor movimiento encontrado:")
-    bestState.imprimir_tablero()
-    print("Utilidad del mejor estado:", utilityValue)
+        # Turno del Agente (Max)
+        print("Turno del Agente:")
+        bestState, utilityValue, _ = miniMax(tablero, 0, maxLevel, 1, -math.inf, math.inf, stop)
 
-    # Verificar si el juego ha terminado
-    if bestState.isGameOver():
-        print(f"Resultado del juego: {bestState.game_result}")
+        # Actualizar el tablero con el mejor estado encontrado
+        tablero = bestState
+        tablero.imprimir_tablero()
+        print("Utilidad del estado actual:", utilityValue)
+
+        if tablero.isGameOver():
+            break
+
+        # Agregar un retraso antes del turno de los hoyos
+        time.sleep(2)  # Retraso de 2 segundos
+
+        # Turno de los Hoyos (Min)
+        print("Turno de los Hoyos:")
+        # Para simplificar, los hoyos se moverán aleatoriamente entre los posibles movimientos
+        moves = tablero.getAvailableMovesForMin()
+        if moves:
+            move = random.choice(moves)
+            hoyo_index, new_row, new_col = move
+            tablero.mover_hoyo(hoyo_index, new_row, new_col)
+            tablero.imprimir_tablero()
+            print(f"Hoyo {hoyo_index} movido a ({new_row}, {new_col})")
+        else:
+            print("Los hoyos no pueden moverse.")
+
+        if tablero.isGameOver():
+            break
+
+    # Resultado del juego
+    if tablero.game_result == 'win':
+        print("¡El agente ha encontrado el oro! Has ganado.")
+    elif tablero.game_result == 'lose_wumpus':
+        print("¡El agente ha sido devorado por el Wumpus! Has perdido.")
+    elif tablero.game_result == 'lose_hoyo':
+        print("¡El agente ha caído en un hoyo! Has perdido.")
     else:
-        print("El juego continúa.")
+        print("El juego ha terminado.")
