@@ -460,7 +460,7 @@ if __name__ == "__main__":
     # Bucle para ejecutar el juego automáticamente
     while not tablero.isGameOver():
         # Agregar un retraso para observar mejor la ejecución
-        time.sleep(2)  # Retraso de 2 segundos entre cada turno
+        #time.sleep(0.5)  # Retraso de 2 segundos entre cada turno
 
         # Turno del Agente (Max)
         print("Turno del Agente:")
