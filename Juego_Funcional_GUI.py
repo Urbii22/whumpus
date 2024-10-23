@@ -177,7 +177,7 @@ class Tablerowumpus:
             if tile in contador_penalizaciones:
                 contador_penalizaciones[tile] += 1
 
-        # Definir pesos de penalización
+        #  Definir pesos de penalización
         pesos_penalizacion = {
             HEDOR: 0.05,
             BRISA: 0.05,
