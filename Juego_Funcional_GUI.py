@@ -1,7 +1,6 @@
 import random
 import math
 import tkinter as tk
-from json.decoder import WHITESPACE
 from tkinter import messagebox
 from copy import deepcopy
 from typing import List, Tuple, Union
