@@ -1,6 +1,7 @@
 import random
 import math
 import tkinter as tk
+from json.decoder import WHITESPACE
 from tkinter import messagebox
 from copy import deepcopy
 from typing import List, Tuple, Union
@@ -23,6 +24,7 @@ MOVE_UP = 'up'
 MOVE_DOWN = 'down'
 MOVE_LEFT = 'left'
 MOVE_RIGHT = 'right'
+
 
 class Tablerowumpus:
 
@@ -86,7 +88,7 @@ class Tablerowumpus:
 
         # Colocar el oro asegurando que no esté adyacente al agente
         posiciones_no_adyacentes = [pos for pos in posiciones_disponibles if
-                                     not self.es_adyacente(pos, self.pos_agente)]
+                                    not self.es_adyacente(pos, self.pos_agente)]
         if not posiciones_no_adyacentes:
             raise ValueError("No hay posiciones disponibles para colocar el oro que no estén adyacentes al agente.")
         oro_pos = random.choice(posiciones_no_adyacentes)
@@ -94,14 +96,22 @@ class Tablerowumpus:
         posiciones_disponibles.remove(oro_pos)
         self.pos_oro = oro_pos  # Almacenar la posición del Oro
 
-        # Colocar los 2 hoyos
+        # Colocar los 2 hoyos asegurando que no estén adyacentes al agente
         if len(posiciones_disponibles) < 2:
             raise ValueError("No hay suficientes posiciones disponibles para colocar los hoyos.")
-        hoyos_pos1 = random.choice(posiciones_disponibles)
+
+        # Excluir posiciones adyacentes al agente para los hoyos
+        posiciones_para_hoyos = [pos for pos in posiciones_disponibles if not self.es_adyacente(pos, self.pos_agente)]
+        if len(posiciones_para_hoyos) < 2:
+            raise ValueError(
+                "No hay suficientes posiciones disponibles para colocar los hoyos sin estar adyacentes al agente.")
+
+        hoyos_pos1 = random.choice(posiciones_para_hoyos)
         self.placeTile(hoyos_pos1[0], hoyos_pos1[1], HOYO)
         posiciones_disponibles.remove(hoyos_pos1)
+        posiciones_para_hoyos.remove(hoyos_pos1)
 
-        hoyos_pos2 = random.choice(posiciones_disponibles)
+        hoyos_pos2 = random.choice(posiciones_para_hoyos)
         self.placeTile(hoyos_pos2[0], hoyos_pos2[1], HOYO)
         posiciones_disponibles.remove(hoyos_pos2)
         self.pos_hoyos = [hoyos_pos1, hoyos_pos2]  # Almacenar las posiciones de los Hoyos
@@ -134,7 +144,8 @@ class Tablerowumpus:
             if len(fila) != self.tamano:
                 return False
             for casilla in fila:
-                if casilla not in {BLANCO, AGENTE, HOYO, WUMPUS, ORO, HEDOR, BRISA, BRISA_HEDOR, BRISA_ORO, HEDOR_ORO, BRISA_HEDOR_ORO}:
+                if casilla not in {BLANCO, AGENTE, HOYO, WUMPUS, ORO, HEDOR, BRISA, BRISA_HEDOR, BRISA_ORO, HEDOR_ORO,
+                                   BRISA_HEDOR_ORO}:
                     return False
         return True
 
@@ -163,13 +174,13 @@ class Tablerowumpus:
         contador_penalizaciones = {
             HEDOR: 0,
             BRISA: 0,
-            BLANCO:0,
             BRISA_HEDOR: 0,
             BRISA_ORO: 0,
             HEDOR_ORO: 0,
             BRISA_HEDOR_ORO: 0,
             HOYO: 0,
             WUMPUS: 0
+
         }
 
         for vec in vecinos_agente:
@@ -177,17 +188,14 @@ class Tablerowumpus:
             if tile in contador_penalizaciones:
                 contador_penalizaciones[tile] += 1
 
-        #  Definir pesos de penalización
+        # Definir pesos de penalización
         pesos_penalizacion = {
-            HEDOR: 0.05,
+            HEDOR: 0.1,
             BRISA: 0.05,
-            #BLANCO: -0.05,
-            BRISA_HEDOR: 0.1,
-            BRISA_ORO: 0.05,
-            HEDOR_ORO: 0.05,
-            BRISA_HEDOR_ORO: 0.15,
-            HOYO: 0.2,
-            WUMPUS: 0.2
+            BRISA_HEDOR: 0.2,
+            BRISA_ORO: 0,
+            HEDOR_ORO: 0,
+            BRISA_HEDOR_ORO: 0
         }
 
         # Calcular penalización total
@@ -352,7 +360,7 @@ class Tablerowumpus:
         """
         if 0 <= new_row < self.tamano and 0 <= new_col < self.tamano:
             tile = self.matrix[new_row][new_col]
-            # Evitar ORO, Wumpus y AGENTE, BRISA_ORO y HEDOR_ORO
+            # Evitar ORO, Wumpus, AGENTE, BRISA_ORO y HEDOR_ORO
             forbidden_tiles = {AGENTE, WUMPUS, ORO, BRISA_ORO, HEDOR_ORO, BRISA_HEDOR_ORO}
             if tile not in forbidden_tiles and tile in {BLANCO, BRISA, HEDOR, BRISA_HEDOR}:
                 return True
@@ -407,11 +415,13 @@ class Tablerowumpus:
             moves = self.getAvailableMovesForMin()
             return len(moves) > 0
 
+
 # ================================
 # Implementación de la función miniMax
 # ================================
 
-def miniMax(state: Tablerowumpus, currentLevel: int, maxLevel: int, player: int, alpha: float, beta: float) -> Tuple[Tablerowumpus, float]:
+def miniMax(state: Tablerowumpus, currentLevel: int, maxLevel: int, player: int, alpha: float, beta: float) -> Tuple[
+    Tablerowumpus, float]:
     # Verificar si el juego ha terminado o si se alcanzó el nivel máximo de profundidad
     if not state.moveCanBeMade(player) or currentLevel == maxLevel or state.isGameOver():
         return (state, state.utility())
@@ -473,6 +483,7 @@ def miniMax(state: Tablerowumpus, currentLevel: int, maxLevel: int, player: int,
 
         return (bestState, minValue)
 
+
 # ================================
 # Clase de la GUI
 # ================================
@@ -490,7 +501,8 @@ class WumpusGUI:
         self.main_frame.pack()
 
         # Crear el lienzo para el tablero
-        self.canvas = tk.Canvas(self.main_frame, width=self.tamano*self.cell_size, height=self.tamano*self.cell_size)
+        self.canvas = tk.Canvas(self.main_frame, width=self.tamano * self.cell_size,
+                                height=self.tamano * self.cell_size)
         self.canvas.pack()
 
         # Crear el marco para los botones
@@ -502,7 +514,8 @@ class WumpusGUI:
         self.start_button.pack(side=tk.LEFT, padx=5)
 
         # Botón para reiniciar el juego, inicialmente deshabilitado
-        self.restart_button = tk.Button(self.button_frame, text="Reiniciar", command=self.reset_game, state=tk.DISABLED, width=15)
+        self.restart_button = tk.Button(self.button_frame, text="Reiniciar", command=self.reset_game, state=tk.DISABLED,
+                                        width=15)
         self.restart_button.pack(side=tk.LEFT, padx=5)
 
         # Inicializar el tablero
@@ -562,7 +575,7 @@ class WumpusGUI:
 
                 self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline='black')
                 if text:
-                    self.canvas.create_text((x0+x1)//2, (y0+y1)//2, text=text)
+                    self.canvas.create_text((x0 + x1) // 2, (y0 + y1) // 2, text=text)
 
     def start_game(self):
         if not self.game_running:
@@ -644,6 +657,7 @@ class WumpusGUI:
         print("Juego reiniciado.")
         self.restart_button.config(state=tk.DISABLED)  # Deshabilitar botón de reinicio
         self.start_button.config(state=tk.NORMAL)  # Habilitar botón de inicio
+
 
 # ================================
 # Ejecución Automática del Juego con GUI
