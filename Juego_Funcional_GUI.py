@@ -194,7 +194,10 @@ class Tablerowumpus:
             BRISA_HEDOR: 0.2,
             BRISA_ORO: 0,
             HEDOR_ORO: 0,
-            BRISA_HEDOR_ORO: 0
+            BRISA_HEDOR_ORO: 0,
+            HOYO: -0.5,
+            WUMPUS: -0.5
+
         }
 
         # Calcular penalización total
