@@ -3,7 +3,7 @@ import math
 import tkinter as tk
 from tkinter import messagebox
 from copy import deepcopy
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 # Definición de los elementos como números
 BLANCO = 0
