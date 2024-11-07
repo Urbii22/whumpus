@@ -3,7 +3,7 @@ import math
 import tkinter as tk
 from tkinter import messagebox
 from copy import deepcopy
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 # Definición de los elementos como números
 BLANCO = 0
@@ -189,10 +189,10 @@ class Tablerowumpus:
 
         # Definir pesos de penalización
         pesos_penalizacion = {
-        # las penalizaciones de hoyo y del whumpus son negativas ya que si las dejamos en positivo, al realizar
-        # el movimiento hacia hoyo o whupus, el agente el nuevo estao seria mejor que el anterior, lo cual no es correcto
-        # ya que el agente moriria, al ser negativos hace que la funcion de utilidad sea menor al mover a esas casillas
-        # por lo que el agente no se movera hacia esas casillas
+            # las penalizaciones de hoyo y del whumpus son negativas ya que si las dejamos en positivo, al realizar
+            # el movimiento hacia hoyo o whupus, el agente el nuevo estao seria mejor que el anterior, lo cual no es correcto
+            # ya que el agente moriria, al ser negativos hace que la funcion de utilidad sea menor al mover a esas casillas
+            # por lo que el agente no se movera hacia esas casillas
             HEDOR: 0.1,
             BRISA: 0.05,
             BRISA_HEDOR: 0.2,
