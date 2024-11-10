@@ -1,13 +1,8 @@
+import tkinter as tk
+from tkinter import messagebox
+
 def inicializar_tablero():
     return [None] * 9
-
-def imprimir_tablero(tablero):
-    for i in range(3):
-        fila = tablero[3*i:3*(i+1)]
-        print("|".join([celda if celda is not None else ' ' for celda in fila]))
-        if i < 2:
-            print("-----")
-    print()  # Línea en blanco para separar tableros
 
 def verificar_ganador(tablero):
     combinaciones = [
@@ -26,94 +21,100 @@ def verificar_ganador(tablero):
 def movimientos_disponibles(tablero):
     return [i for i, celda in enumerate(tablero) if celda is None]
 
-def minimax(tablero, profundidad, es_maximizando, indent=""):
+def minimax(tablero, es_maximizando):
     resultado = verificar_ganador(tablero)
     if resultado == 'X':
-        print(f"{indent}Profundidad {profundidad}: 'X' gana. Puntaje = 1")
-        imprimir_tablero(tablero)
         return 1
     elif resultado == 'O':
-        print(f"{indent}Profundidad {profundidad}: 'O' gana. Puntaje = -1")
-        imprimir_tablero(tablero)
         return -1
     elif resultado == 'Empate':
-        print(f"{indent}Profundidad {profundidad}: Empate. Puntaje = 0")
-        imprimir_tablero(tablero)
         return 0
 
     if es_maximizando:
         mejor_puntaje = -float('inf')
-        print(f"{indent}Profundidad {profundidad}: Maximizando 'X'")
         for movimiento in movimientos_disponibles(tablero):
             tablero[movimiento] = 'X'
-            print(f"{indent}  'X' coloca en posición {movimiento}")
-            puntaje = minimax(tablero, profundidad + 1, False, indent + "    ")
+            puntaje = minimax(tablero, False)
             tablero[movimiento] = None
             mejor_puntaje = max(mejor_puntaje, puntaje)
-        print(f"{indent}Profundidad {profundidad}: Mejor puntaje para 'X' = {mejor_puntaje}")
         return mejor_puntaje
     else:
         mejor_puntaje = float('inf')
-        print(f"{indent}Profundidad {profundidad}: Minimizando 'O'")
         for movimiento in movimientos_disponibles(tablero):
             tablero[movimiento] = 'O'
-            print(f"{indent}  'O' coloca en posición {movimiento}")
-            puntaje = minimax(tablero, profundidad + 1, True, indent + "    ")
+            puntaje = minimax(tablero, True)
             tablero[movimiento] = None
             mejor_puntaje = min(mejor_puntaje, puntaje)
-        print(f"{indent}Profundidad {profundidad}: Mejor puntaje para 'O' = {mejor_puntaje}")
         return mejor_puntaje
 
 def mejor_jugada(tablero):
     mejor_puntaje = -float('inf')
     movimiento_optimo = None
-    print("Evaluando movimientos para 'X'...")
     for movimiento in movimientos_disponibles(tablero):
         tablero[movimiento] = 'X'
-        print(f"'X' prueba la posición {movimiento}:")
-        puntaje = minimax(tablero, 0, False, indent="  ")
-        print(f"Puntaje de la posición {movimiento}: {puntaje}\n")
+        puntaje = minimax(tablero, False)
         tablero[movimiento] = None
         if puntaje > mejor_puntaje:
             mejor_puntaje = puntaje
             movimiento_optimo = movimiento
-    print(f"Mejor jugada para 'X' es la posición {movimiento_optimo} con puntaje {mejor_puntaje}\n")
     return movimiento_optimo
 
-def juego():
-    tablero = inicializar_tablero()
-    turno = 'X'  # 'X' será la IA, 'O' el jugador
+def actualizar_interfaz():
+    for i in range(9):
+        texto = tablero[i] if tablero[i] is not None else ''
+        botones[i]['text'] = texto
 
-    while True:
-        imprimir_tablero(tablero)
+def click_boton(i):
+    if tablero[i] is None and turno_jugador.get():
+        tablero[i] = 'O'
+        actualizar_interfaz()
         ganador = verificar_ganador(tablero)
         if ganador:
             if ganador == 'Empate':
-                print("¡Es un empate!")
+                messagebox.showinfo("Resultado", "¡Es un empate!")
             else:
-                print(f"¡{ganador} gana!")
-            break
-
-        if turno == 'X':
-            print("Turno de la IA (X):")
-            movimiento = mejor_jugada(tablero)
-            if movimiento is not None:
-                tablero[movimiento] = 'X'
-            turno = 'O'
+                messagebox.showinfo("Resultado", f"¡{ganador} gana!")
+            reiniciar_juego()
         else:
-            print("Turno del Jugador (O):")
-            try:
-                movimiento = int(input("Ingresa una posición (0-8): "))
-                if movimiento not in range(9):
-                    print("Posición inválida. Debe estar entre 0 y 8.\n")
-                    continue
-                if tablero[movimiento] is None:
-                    tablero[movimiento] = 'O'
-                    turno = 'X'
-                else:
-                    print("Movimiento inválido. Casilla ya ocupada.\n")
-            except ValueError:
-                print("Entrada inválida. Por favor, ingresa un número entre 0 y 8.\n")
+            turno_jugador.set(False)
+            ventana.after(500, turno_ia)
 
-if __name__ == "__main__":
-    juego()
+def turno_ia():
+    movimiento = mejor_jugada(tablero)
+    if movimiento is not None:
+        tablero[movimiento] = 'X'
+        actualizar_interfaz()
+        ganador = verificar_ganador(tablero)
+        if ganador:
+            if ganador == 'Empate':
+                messagebox.showinfo("Resultado", "¡Es un empate!")
+            else:
+                messagebox.showinfo("Resultado", f"¡{ganador} gana!")
+            reiniciar_juego()
+        else:
+            turno_jugador.set(True)
+
+def reiniciar_juego():
+    global tablero
+    tablero = inicializar_tablero()
+    actualizar_interfaz()
+    turno_jugador.set(True)
+
+# Configuración de la ventana principal
+ventana = tk.Tk()
+ventana.title("Tres en Raya")
+
+tablero = inicializar_tablero()
+turno_jugador = tk.BooleanVar(value=True)
+
+# Creación de los botones del tablero
+botones = []
+for i in range(9):
+    boton = tk.Button(ventana, text='', font=('Helvetica', 32), width=5, height=2,
+                      command=lambda i=i: click_boton(i))
+    boton.grid(row=i//3, column=i%3)
+    botones.append(boton)
+
+# Iniciar el juego
+actualizar_interfaz()
+ventana.mainloop()
