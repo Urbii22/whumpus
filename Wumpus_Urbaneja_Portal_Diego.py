@@ -60,7 +60,7 @@ class Tablerowumpus:
 
     def __eq__(self, other) -> bool:
         """
-        Método para comparar dos tableros y verificar si son iguales.
+        Metodo para comparar dos tableros y verificar si son iguales.
         """
         for i in range(self.tamano):
             for j in range(self.tamano):
