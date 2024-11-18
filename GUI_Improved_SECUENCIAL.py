@@ -4,23 +4,22 @@ import tkinter as tk
 from tkinter import messagebox
 from copy import deepcopy
 from typing import List, Tuple
-import sys
 import argparse
 
-# Definición de los elementos como números
-BLANCO = 0
-AGENTE = 1
-HOYO = 2
-WUMPUS = 3
-ORO = 4
-HEDOR = 5
-BRISA = 6
-HEDOR_ORO = 7
-BRISA_ORO = 8
-BRISA_HEDOR = 9
-BRISA_HEDOR_ORO = 10  # Añadido para manejar combinaciones
+# Definición de constantes para representar los elementos del juego
+BLANCO = 0               # Casilla vacía
+AGENTE = 1               # Posición del agente
+HOYO = 2                 # Hoyo mortal
+WUMPUS = 3               # Monstruo Wumpus
+ORO = 4                  # Oro a recolectar
+HEDOR = 5                # Indica que el Wumpus está cerca
+BRISA = 6                # Indica que un hoyo está cerca
+HEDOR_ORO = 7            # Casilla con hedor y oro
+BRISA_ORO = 8            # Casilla con brisa y oro
+BRISA_HEDOR = 9          # Casilla con brisa y hedor
+BRISA_HEDOR_ORO = 10     # Casilla con brisa, hedor y oro (combinaciones adicionales)
 
-# Definición de movimientos para facilitar la referencia
+# Definición de movimientos posibles
 MOVE_UP = 'up'
 MOVE_DOWN = 'down'
 MOVE_LEFT = 'left'
@@ -28,16 +27,20 @@ MOVE_RIGHT = 'right'
 
 
 class Tablerowumpus:
+    """
+    Clase que representa el tablero del juego del Wumpus.
+    """
 
     def __init__(self, matrix: List[List[int]]):
-        self.tamano = 6
+        self.tamano = 6  # Tamaño del tablero (6x6)
 
         # Validar que la matriz tenga el tamaño correcto
         if not self.es_matriz_valida(matrix):
             raise ValueError(f"La matriz proporcionada debe ser de tamaño {self.tamano}x{self.tamano}.")
 
+        # Crear una copia profunda de la matriz inicial
         self.matrix = deepcopy(matrix)
-        self.pos_agente = (5, 0)  # Posición inicial del agente
+        self.pos_agente = (5, 0)  # Posición inicial fija del agente en la esquina inferior izquierda
 
         # Colocar el agente en la matriz
         self.placeTile(self.pos_agente[0], self.pos_agente[1], AGENTE)
@@ -47,14 +50,17 @@ class Tablerowumpus:
         self.pos_oro = None
         self.pos_hoyos = []
 
-        # Colocar los demás elementos del juego
+        # Colocar los demás elementos del juego (Wumpus, oro, hoyos, brisas y hedores)
         self.colocar_elementos()
 
         # Variables para indicar si el juego ha terminado y el resultado
         self.game_over = False
-        self.game_result = None  # Puede ser 'win', 'lose_wumpus', 'lose_hoyo'
+        self.game_result = None  # Puede ser 'win', 'lose_wumpus' o 'lose_hoyo'
 
     def __eq__(self, other) -> bool:
+        """
+        Método para comparar dos tableros y verificar si son iguales.
+        """
         for i in range(self.tamano):
             for j in range(self.tamano):
                 if self.matrix[i][j] != other.matrix[i][j]:
@@ -62,32 +68,46 @@ class Tablerowumpus:
         return True
 
     def setMatrix(self, matrix: List[List[int]]):
+        """
+        Establece una nueva matriz para el tablero, después de validar su tamaño.
+        """
         if not self.es_matriz_valida(matrix):
             raise ValueError(f"La matriz proporcionada debe ser de tamaño {self.tamano}x{self.tamano}.")
         self.matrix = deepcopy(matrix)
 
     def getMatrix(self) -> List[List[int]]:
+        """
+        Retorna una copia profunda de la matriz actual del tablero.
+        """
         return deepcopy(self.matrix)
 
     def placeTile(self, row: int, col: int, tile: int):
+        """
+        Coloca un elemento específico en una posición del tablero.
+        """
         if 0 <= row < self.tamano and 0 <= col < self.tamano:
             self.matrix[row][col] = tile
         else:
             raise IndexError(f"Las coordenadas ({row}, {col}) están fuera de los límites del tablero.")
 
     def colocar_elementos(self):
+        """
+        Coloca el Wumpus, el oro y los hoyos en el tablero de manera aleatoria,
+        asegurándose de que cumplan con las restricciones del juego.
+        """
+        # Generar todas las posiciones disponibles en el tablero
         posiciones_disponibles = [(i, j) for i in range(self.tamano) for j in range(self.tamano)]
         # Remover la posición del agente de las disponibles
         if self.pos_agente in posiciones_disponibles:
             posiciones_disponibles.remove(self.pos_agente)
 
-        # Colocar el Wumpus
+        # Colocar el Wumpus en una posición aleatoria
         wumpus_pos = random.choice(posiciones_disponibles)
         self.placeTile(wumpus_pos[0], wumpus_pos[1], WUMPUS)
         posiciones_disponibles.remove(wumpus_pos)
         self.pos_wumpus = wumpus_pos  # Almacenar la posición del Wumpus
 
-        # Colocar el oro asegurando que no esté adyacente al agente
+        # Colocar el oro, asegurando que no esté adyacente al agente
         posiciones_no_adyacentes = [pos for pos in posiciones_disponibles if
                                      not self.es_adyacente(pos, self.pos_agente)]
         if not posiciones_no_adyacentes:
@@ -95,27 +115,28 @@ class Tablerowumpus:
         oro_pos = random.choice(posiciones_no_adyacentes)
         self.placeTile(oro_pos[0], oro_pos[1], ORO)
         posiciones_disponibles.remove(oro_pos)
-        self.pos_oro = oro_pos  # Almacenar la posición del Oro
+        self.pos_oro = oro_pos  # Almacenar la posición del oro
 
-        # Colocar los 2 hoyos asegurando que no estén adyacentes al agente
+        # Colocar dos hoyos, asegurando que no estén adyacentes al agente
         if len(posiciones_disponibles) < 2:
             raise ValueError("No hay suficientes posiciones disponibles para colocar los hoyos.")
 
         # Excluir posiciones adyacentes al agente para los hoyos
         posiciones_para_hoyos = [pos for pos in posiciones_disponibles if not self.es_adyacente(pos, self.pos_agente)]
         if len(posiciones_para_hoyos) < 2:
-            raise ValueError(
-                "No hay suficientes posiciones disponibles para colocar los hoyos sin estar adyacentes al agente.")
+            raise ValueError("No hay suficientes posiciones disponibles para colocar los hoyos sin estar adyacentes al agente.")
 
+        # Colocar el primer hoyo
         hoyos_pos1 = random.choice(posiciones_para_hoyos)
         self.placeTile(hoyos_pos1[0], hoyos_pos1[1], HOYO)
         posiciones_disponibles.remove(hoyos_pos1)
         posiciones_para_hoyos.remove(hoyos_pos1)
 
+        # Colocar el segundo hoyo
         hoyos_pos2 = random.choice(posiciones_para_hoyos)
         self.placeTile(hoyos_pos2[0], hoyos_pos2[1], HOYO)
         posiciones_disponibles.remove(hoyos_pos2)
-        self.pos_hoyos = [hoyos_pos1, hoyos_pos2]  # Almacenar las posiciones de los Hoyos
+        self.pos_hoyos = [hoyos_pos1, hoyos_pos2]  # Almacenar las posiciones de los hoyos
 
         # Colocar casillas de hedor alrededor del Wumpus
         vecinos_wumpus = self.obtener_vecinos(wumpus_pos)
@@ -139,6 +160,9 @@ class Tablerowumpus:
                     self.placeTile(vec[0], vec[1], BRISA_HEDOR_ORO)
 
     def es_matriz_valida(self, matrix: List[List[int]]) -> bool:
+        """
+        Verifica si la matriz proporcionada es válida (tamaño correcto y valores permitidos).
+        """
         if len(matrix) != self.tamano:
             return False
         for fila in matrix:
@@ -151,9 +175,15 @@ class Tablerowumpus:
         return True
 
     def es_adyacente(self, pos1: Tuple[int, int], pos2: Tuple[int, int]) -> bool:
+        """
+        Verifica si dos posiciones en el tablero son adyacentes (arriba, abajo, izquierda, derecha).
+        """
         return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1]) == 1
 
     def obtener_vecinos(self, pos: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """
+        Obtiene una lista de posiciones adyacentes válidas a una posición dada.
+        """
         i, j = pos
         vecinos = []
         posibles = [(i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1)]
@@ -162,7 +192,8 @@ class Tablerowumpus:
                 vecinos.append((x, y))
         return vecinos
 
-    def utility(self) -> float:
+    def utility(self, currentLevel: int) -> float:
+
         posAgente = list(self.pos_agente)
         posOro = list(self.pos_oro)
 
@@ -181,7 +212,6 @@ class Tablerowumpus:
             BRISA_HEDOR_ORO: 0,
             HOYO: 0,
             WUMPUS: 0
-
         }
 
         for vec in vecinos_agente:
@@ -191,18 +221,14 @@ class Tablerowumpus:
 
         # Definir pesos de penalización
         pesos_penalizacion = {
-            # las penalizaciones de hoyo y del wumpus son negativas ya que si las dejamos en positivo, al realizar
-            # el movimiento hacia hoyo o wumpus, el agente el nuevo estado sería mejor que el anterior, lo cual no es correcto
-            # ya que el agente moriría, al ser negativos hace que la función de utilidad sea menor al mover a esas casillas
-            # por lo que el agente no se moverá hacia esas casillas
-            HEDOR: 0.1,
-            BRISA: 0.05,
-            BRISA_HEDOR: 0.2,
-            BRISA_ORO: 0,
-            HEDOR_ORO: 0,
-            BRISA_HEDOR_ORO: 0,
-            HOYO: -0.5,
-            WUMPUS: -0.5
+            HEDOR: 0.2,  # Incrementar penalización por hedor
+            BRISA: 0.2,  # Incrementar penalización por brisa
+            BRISA_HEDOR: 0.5,  # Penalización más alta para combinación de brisa y hedor
+            BRISA_ORO: 2,  # Penalización menor si hay oro
+            HEDOR_ORO: 2,  # Penalización menor si hay oro
+            BRISA_HEDOR_ORO: 0.05,  # Penalización menor si hay oro
+            HOYO: -0.01,  # Penalización infinita por caer en un hoyo
+            WUMPUS: -0.5  # Penalización infinita por encontrarse con el Wumpus
         }
 
         # Calcular penalización total
@@ -210,12 +236,18 @@ class Tablerowumpus:
         for tile, count in contador_penalizaciones.items():
             penalizacion_total += pesos_penalizacion.get(tile, 0) * count
 
+        # Agregar penalización por profundidad (costo por movimiento)
+        costo_por_movimiento = 0.1 * currentLevel
+
         # Calcular la utilidad final
-        utilidad = (1 / (distancia + 1e-2)) - penalizacion_total
+        utilidad = (1 / (distancia + 1e-2)) - penalizacion_total - costo_por_movimiento
 
         return utilidad
 
     def imprimir_tablero(self):
+        """
+        Imprime el tablero en la consola con símbolos representativos.
+        """
         tile_symbols = {
             BLANCO: '  ',
             AGENTE: 'A ',
@@ -240,34 +272,49 @@ class Tablerowumpus:
         print()
 
     # ================================
-    # Métodos de Movimiento
+    # Métodos de Movimiento del Agente
     # ================================
 
     def canMoveUp(self, row: int, col: int) -> bool:
+        """
+        Verifica si el agente puede moverse hacia arriba desde su posición actual.
+        """
         new_row = row - 1
         if new_row < 0:
             return False
         return True
 
     def canMoveDown(self, row: int, col: int) -> bool:
+        """
+        Verifica si el agente puede moverse hacia abajo desde su posición actual.
+        """
         new_row = row + 1
         if new_row >= self.tamano:
             return False
         return True
 
     def canMoveLeft(self, row: int, col: int) -> bool:
+        """
+        Verifica si el agente puede moverse hacia la izquierda desde su posición actual.
+        """
         new_col = col - 1
         if new_col < 0:
             return False
         return True
 
     def canMoveRight(self, row: int, col: int) -> bool:
+        """
+        Verifica si el agente puede moverse hacia la derecha desde su posición actual.
+        """
         new_col = col + 1
         if new_col >= self.tamano:
             return False
         return True
 
     def getAvailableMovesForMax(self, row: int, col: int) -> List[str]:
+        """
+        Obtiene una lista de movimientos disponibles para el agente (Max) desde su posición actual.
+        """
         moves = []
         if self.canMoveUp(row, col):
             moves.append(MOVE_UP)
@@ -281,7 +328,7 @@ class Tablerowumpus:
 
     def getAvailableMovesForMin(self) -> List[Tuple[int, int, int]]:
         """
-        Retorna una lista de movimientos disponibles para los hoyos.
+        Retorna una lista de movimientos disponibles para los hoyos (Min).
         Cada movimiento es una tupla (hoyo_index, new_row, new_col).
         """
         moves = []
@@ -293,6 +340,9 @@ class Tablerowumpus:
         return moves
 
     def up(self, row: int, col: int):
+        """
+        Mueve el agente hacia arriba si es posible y verifica el estado del juego.
+        """
         if not self.canMoveUp(row, col):
             return
         new_row, new_col = row - 1, col
@@ -300,6 +350,9 @@ class Tablerowumpus:
         self.verificar_estado_juego(new_row, new_col)
 
     def down(self, row: int, col: int):
+        """
+        Mueve el agente hacia abajo si es posible y verifica el estado del juego.
+        """
         if not self.canMoveDown(row, col):
             return
         new_row, new_col = row + 1, col
@@ -307,6 +360,9 @@ class Tablerowumpus:
         self.verificar_estado_juego(new_row, new_col)
 
     def left(self, row: int, col: int):
+        """
+        Mueve el agente hacia la izquierda si es posible y verifica el estado del juego.
+        """
         if not self.canMoveLeft(row, col):
             return
         new_row, new_col = row, col - 1
@@ -314,6 +370,9 @@ class Tablerowumpus:
         self.verificar_estado_juego(new_row, new_col)
 
     def right(self, row: int, col: int):
+        """
+        Mueve el agente hacia la derecha si es posible y verifica el estado del juego.
+        """
         if not self.canMoveRight(row, col):
             return
         new_row, new_col = row, col + 1
@@ -321,8 +380,10 @@ class Tablerowumpus:
         self.verificar_estado_juego(new_row, new_col)
 
     def mover_agente(self, old_row: int, old_col: int, new_row: int, new_col: int):
-        # Retornar la casilla antigua a su estado original (BLANCO o lo que corresponda)
-        # Antes de mover, restaurar las casillas de brisa y hedor si es necesario
+        """
+        Actualiza la posición del agente en el tablero, restaurando la casilla anterior y colocando el agente en la nueva.
+        """
+        # Restaurar la casilla antigua a su estado original
         self.restore_tile(old_row, old_col)
 
         # Actualizar la posición del agente
@@ -332,9 +393,11 @@ class Tablerowumpus:
         self.placeTile(new_row, new_col, AGENTE)
 
     def restore_tile(self, row: int, col: int):
-        # Restaurar la casilla según sus vecinos
-        # Primero, limpiar brisas y hedores alrededor de la posición
-        # Luego, recalcular si debe tener brisa o hedor
+        """
+        Restaura una casilla después de que el agente se ha movido de ella,
+        recalculando si debe contener brisa o hedor.
+        """
+        # Dejar la casilla en blanco inicialmente
         self.placeTile(row, col, BLANCO)
 
         # Recalcular brisas y hedores en los vecinos
@@ -342,57 +405,66 @@ class Tablerowumpus:
         for vec in vecinos:
             tile = self.matrix[vec[0]][vec[1]]
             if tile == HOYO:
-                # Añadir brisa alrededor del hoyo
+                # Si hay un hoyo adyacente, colocar brisa
                 if self.matrix[row][col] == BLANCO:
                     self.placeTile(row, col, BRISA)
             elif tile == WUMPUS:
-                # Añadir hedor alrededor del Wumpus
+                # Si hay un Wumpus adyacente, colocar hedor
                 if self.matrix[row][col] == BLANCO:
                     self.placeTile(row, col, HEDOR)
             elif tile == ORO:
-                # Si hay oro y brisa
+                # Si hay oro adyacente, colocar indicación de oro con brisa si aplica
                 if self.matrix[row][col] == BLANCO:
                     self.placeTile(row, col, BRISA_ORO)
 
     def verificar_estado_juego(self, row: int, col: int):
+        """
+        Verifica si el agente ha ganado o perdido después de un movimiento.
+        """
         agente_pos = (row, col)
 
-        # Verificar si el agente está en la misma posición que el oro
+        # Verificar si el agente ha encontrado el oro
         if agente_pos == self.pos_oro:
             self.game_over = True
             self.game_result = 'win'
             return
 
-        # Verificar si el agente está en la misma posición que el Wumpus
+        # Verificar si el agente ha sido devorado por el Wumpus
         if agente_pos == self.pos_wumpus:
             self.game_over = True
             self.game_result = 'lose_wumpus'
             return
 
-        # Verificar si el agente está en una posición de hoyo
+        # Verificar si el agente ha caído en un hoyo
         if agente_pos in self.pos_hoyos:
             self.game_over = True
             self.game_result = 'lose_hoyo'
             return
 
     def isGameOver(self) -> bool:
+        """
+        Verifica si el juego ha terminado.
+        """
         return self.game_over
 
     def canMoveHoyo(self, hoyo_index: int, new_row: int, new_col: int) -> bool:
         """
         Verifica si un hoyo puede moverse a la posición (new_row, new_col).
-        Puede moverse a casillas que sean BLANCO, BRISA, HEDOR o BRISA_HEDOR,
-        pero no a casillas ocupadas por ORO, WUMPUS, AGENTE, BRISA_ORO, HEDOR_ORO o BRISA_HEDOR_ORO.
+        Los hoyos pueden moverse a casillas que sean BLANCO, BRISA, HEDOR o BRISA_HEDOR,
+        pero no a casillas ocupadas por ORO, WUMPUS, AGENTE o combinaciones con ORO.
         """
         if 0 <= new_row < self.tamano and 0 <= new_col < self.tamano:
             tile = self.matrix[new_row][new_col]
-            # Evitar ORO, Wumpus, AGENTE, BRISA_ORO y HEDOR_ORO
+            # Evitar mover a casillas prohibidas
             forbidden_tiles = {AGENTE, WUMPUS, ORO, BRISA_ORO, HEDOR_ORO, BRISA_HEDOR_ORO}
             if tile not in forbidden_tiles and tile in {BLANCO, BRISA, HEDOR, BRISA_HEDOR}:
                 return True
         return False
 
     def mover_hoyo(self, hoyo_index: int, new_row: int, new_col: int):
+        """
+        Mueve un hoyo a una nueva posición y actualiza las brisas en el tablero.
+        """
         old_row, old_col = self.pos_hoyos[hoyo_index]
         # Eliminar el hoyo de la posición actual
         self.placeTile(old_row, old_col, BLANCO)
@@ -408,6 +480,9 @@ class Tablerowumpus:
         self.actualizar_brisa_al_agregar_hoyo(new_row, new_col)
 
     def actualizar_brisa_al_eliminar_hoyo(self, row: int, col: int):
+        """
+        Actualiza las casillas de brisa alrededor de un hoyo que ha sido movido.
+        """
         vecinos = self.obtener_vecinos((row, col))
         for vec in vecinos:
             tile = self.matrix[vec[0]][vec[1]]
@@ -421,6 +496,9 @@ class Tablerowumpus:
                 self.placeTile(vec[0], vec[1], HEDOR_ORO)
 
     def actualizar_brisa_al_agregar_hoyo(self, row: int, col: int):
+        """
+        Actualiza las casillas de brisa alrededor de un hoyo que ha sido colocado.
+        """
         vecinos = self.obtener_vecinos((row, col))
         for vec in vecinos:
             tile = self.matrix[vec[0]][vec[1]]
@@ -434,6 +512,9 @@ class Tablerowumpus:
                 self.placeTile(vec[0], vec[1], BRISA_HEDOR_ORO)
 
     def moveCanBeMade(self, player: int) -> bool:
+        """
+        Verifica si el jugador (1: Agente, 0: Hoyos) puede realizar algún movimiento.
+        """
         if player == 1:  # Max (Agente)
             moves = self.getAvailableMovesForMax(*self.pos_agente)
             return len(moves) > 0
@@ -443,14 +524,17 @@ class Tablerowumpus:
 
 
 # ================================
-# Implementación de la función miniMax
+# Implementación de la función MiniMax con poda alfa-beta
 # ================================
 
 def miniMax(state: Tablerowumpus, currentLevel: int, maxLevel: int, player: int, alpha: float, beta: float) -> Tuple[
     Tablerowumpus, float]:
-    # Verificar si el juego ha terminado o si se alcanzó el nivel máximo de profundidad
+    """
+    Implementa el algoritmo MiniMax con poda alfa-beta para decidir el mejor movimiento.
+    """
+    # Verificar si el juego ha terminado o si se alcanzó la profundidad máxima
     if not state.moveCanBeMade(player) or currentLevel == maxLevel or state.isGameOver():
-        return (state, state.utility())
+        return (state, state.utility(currentLevel))
 
     # Inicializar variables
     bestState = None
@@ -460,8 +544,10 @@ def miniMax(state: Tablerowumpus, currentLevel: int, maxLevel: int, player: int,
         moves = state.getAvailableMovesForMax(*state.pos_agente)
 
         for move in moves:
+            # Crear una copia del estado actual
             new_state = deepcopy(state)
             row, col = new_state.pos_agente
+            # Realizar el movimiento correspondiente
             if move == MOVE_UP:
                 new_state.up(row, col)
             elif move == MOVE_DOWN:
@@ -474,10 +560,12 @@ def miniMax(state: Tablerowumpus, currentLevel: int, maxLevel: int, player: int,
             # Llamada recursiva al siguiente nivel
             _, value = miniMax(new_state, currentLevel + 1, maxLevel, 0, alpha, beta)
 
+            # Actualizar el valor máximo y el mejor estado
             if value > maxValue:
                 maxValue = value
                 bestState = new_state
 
+            # Actualizar alfa y verificar poda
             alpha = max(alpha, maxValue)
             if beta <= alpha:
                 break  # Poda beta
@@ -495,15 +583,17 @@ def miniMax(state: Tablerowumpus, currentLevel: int, maxLevel: int, player: int,
             # Llamada recursiva al siguiente nivel
             _, value = miniMax(new_state, currentLevel + 1, maxLevel, 1, alpha, beta)
 
+            # Actualizar el valor mínimo y el mejor estado
             if value < minValue:
                 minValue = value
                 bestState = new_state
 
+            # Actualizar beta y verificar poda
             beta = min(beta, minValue)
             if beta <= alpha:
                 break  # Poda alfa
 
-        # Si no hay movimientos posibles para los hoyos, retornamos el estado actual
+        # Si no hay movimientos posibles para los hoyos, retornar el estado actual
         if bestState is None:
             return (state, state.utility())
 
@@ -511,17 +601,21 @@ def miniMax(state: Tablerowumpus, currentLevel: int, maxLevel: int, player: int,
 
 
 # ================================
-# Clase de la GUI Mejorada sin Imágenes y con Modo Secuencial
+# Clase de la Interfaz Gráfica del Usuario (GUI) mejorada sin imágenes y con modo secuencial
 # ================================
 
 class WumpusGUI:
+    """
+    Clase que representa la interfaz gráfica del juego del Wumpus.
+    """
+
     def __init__(self, root):
         self.root = root
         self.tamano = 6
         self.cell_size = 80  # Tamaño de cada celda en píxeles
         self.maxLevel = 3  # Profundidad máxima del árbol de búsqueda
         self.game_running = False  # Indica si el juego está en ejecución
-        self.mode = "automatic"  # Puede ser "automatic" o "sequential"
+        self.mode = "automatic"  # Modo de juego: automático o secuencial
 
         # Crear el marco principal
         self.main_frame = tk.Frame(root, bg="#2E4053")
@@ -565,7 +659,7 @@ class WumpusGUI:
                                           font=("Arial", 12, "bold"), activebackground="#F39C12")
         self.next_move_button.pack(side=tk.LEFT, padx=5)
 
-        # Crear la leyenda
+        # Crear la leyenda de símbolos
         self.create_legend()
 
         # Inicializar el tablero
@@ -573,7 +667,9 @@ class WumpusGUI:
         self.draw_board()
 
     def create_legend(self):
-        """Crea una leyenda para explicar los símbolos y colores del tablero."""
+        """
+        Crea una leyenda para explicar los símbolos y colores del tablero.
+        """
         legend_frame = tk.Frame(self.main_frame, bg="#2E4053")
         legend_frame.grid(row=2, column=0, columnspan=5, pady=10)
 
@@ -595,6 +691,9 @@ class WumpusGUI:
             tk.Label(legend_frame, text=text, bg="#2E4053", fg=color, font=("Arial", 10, "bold")).grid(row=0, column=idx, padx=5)
 
     def iniciar_nuevo_juego(self):
+        """
+        Inicializa un nuevo juego creando una matriz inicial y un nuevo tablero.
+        """
         # Crear una matriz de 6x6 llena de BLANCO (0)
         matriz_inicial = [[BLANCO for _ in range(self.tamano)] for _ in range(self.tamano)]
 
@@ -602,6 +701,9 @@ class WumpusGUI:
         self.tablero = Tablerowumpus(matriz_inicial)
 
     def draw_board(self):
+        """
+        Dibuja el tablero en el lienzo de la interfaz gráfica.
+        """
         self.canvas.delete('all')
         matrix = self.tablero.getMatrix()
         for i in range(self.tamano):
@@ -619,7 +721,9 @@ class WumpusGUI:
                 self.add_tile_text(i, j, matrix[i][j])
 
     def get_tile_color(self, tile: int) -> str:
-        """Devuelve el color correspondiente a cada tipo de casilla."""
+        """
+        Devuelve el color correspondiente a cada tipo de casilla.
+        """
         color_mapping = {
             BLANCO: "#ECF0F1",          # Gris claro
             AGENTE: "#00FF00",          # Verde brillante
@@ -636,49 +740,46 @@ class WumpusGUI:
         return color_mapping.get(tile, "#ECF0F1")  # Por defecto gris claro
 
     def add_tile_text(self, i: int, j: int, tile: int):
-        """Añade texto a la casilla según el tipo de elemento."""
+        """
+        Añade texto a la casilla según el tipo de elemento.
+        """
         text = ""
         font_style = ("Arial", 12, "bold")
         text_color = "black"  # Contraste adecuado con fondo claro
 
+        # Determinar el texto y color según el tipo de casilla
         if tile == AGENTE:
             text = "A"
-            text_color = "white"  # Cambio a "white" para mejor contraste
+            text_color = "white"  # Mejor contraste sobre fondo verde
         elif tile == HOYO:
             text = "H"
-            text_color = "black"
         elif tile == WUMPUS:
             text = "W"
-            text_color = "black"
         elif tile == ORO:
             text = "O"
-            text_color = "black"
         elif tile == HEDOR:
             text = "He"
-            text_color = "black"
         elif tile == BRISA:
             text = "B"
-            text_color = "black"
         elif tile == BRISA_HEDOR:
             text = "BH"
-            text_color = "black"
         elif tile == BRISA_ORO:
             text = "BO"
-            text_color = "black"
         elif tile == HEDOR_ORO:
             text = "HO"
-            text_color = "black"
         elif tile == BRISA_HEDOR_ORO:
             text = "BHO"
-            text_color = "black"
 
+        # Añadir el texto al lienzo si corresponde
         if text:
             self.canvas.create_text(j * self.cell_size + self.cell_size / 2,
                                     i * self.cell_size + self.cell_size / 2,
                                     text=text, font=font_style, fill=text_color)
 
     def draw_rounded_rectangle(self, x1, y1, x2, y2, radius=10, **kwargs):
-        """Dibuja un rectángulo con esquinas redondeadas en el canvas."""
+        """
+        Dibuja un rectángulo con esquinas redondeadas en el canvas.
+        """
         points = [x1 + radius, y1,
                   x1 + radius, y1,
                   x2 - radius, y1,
@@ -702,6 +803,9 @@ class WumpusGUI:
         return self.canvas.create_polygon(points, **kwargs, smooth=True)
 
     def start_game(self):
+        """
+        Inicia el juego en modo automático.
+        """
         if not self.game_running:
             self.game_running = True
             self.mode = "automatic"
@@ -715,6 +819,9 @@ class WumpusGUI:
             self.root.after(1000, self.game_step)  # Iniciar después de 1 segundo
 
     def activate_sequential_mode(self):
+        """
+        Activa el modo secuencial, donde el jugador debe presionar un botón para cada movimiento.
+        """
         if not self.game_running:
             self.game_running = True
             self.mode = "sequential"
@@ -728,6 +835,9 @@ class WumpusGUI:
             self.draw_board()
 
     def execute_next_move(self):
+        """
+        Ejecuta el siguiente movimiento en modo secuencial.
+        """
         if not self.game_running or self.mode != "sequential":
             return
 
@@ -768,6 +878,9 @@ class WumpusGUI:
             return
 
     def game_step(self):
+        """
+        Ejecuta un paso del juego en modo automático.
+        """
         if not self.game_running:
             return
 
@@ -795,6 +908,9 @@ class WumpusGUI:
         self.root.after(500, self.hoyos_move_step)  # 500 ms de retraso
 
     def hoyos_move_step(self):
+        """
+        Ejecuta el movimiento de los hoyos en modo automático.
+        """
         if not self.game_running:
             return
 
@@ -822,6 +938,9 @@ class WumpusGUI:
         self.root.after(500, self.game_step)  # 500 ms de retraso
 
     def show_game_over(self):
+        """
+        Muestra el mensaje de fin de juego y actualiza la interfaz.
+        """
         self.game_running = False
         if self.tablero.game_result == 'win':
             messagebox.showinfo("¡Ganaste!", "El agente ha encontrado el oro.")
@@ -844,6 +963,9 @@ class WumpusGUI:
         self.next_move_button.config(state=tk.DISABLED)
 
     def reset_game(self):
+        """
+        Reinicia el juego a un nuevo estado aleatorio.
+        """
         # Reiniciar el tablero a un nuevo estado aleatorio
         self.iniciar_nuevo_juego()
         self.draw_board()
@@ -858,12 +980,13 @@ class WumpusGUI:
 
 
 if __name__ == "__main__":
+    # Analizar argumentos de línea de comandos
     parser = argparse.ArgumentParser(description="Juego del Wumpus")
     parser.add_argument('--mode', choices=['gui', 'text'], default='gui', help='Modo de juego: gui o text')
     args = parser.parse_args()
 
     if args.mode == 'gui':
-        # Inicializar la GUI
+        # Inicializar la interfaz gráfica
         root = tk.Tk()
         root.title("Juego del Wumpus")
         root.configure(bg="#2E4053")

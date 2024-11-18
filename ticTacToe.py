@@ -110,8 +110,7 @@ turno_jugador = tk.BooleanVar(value=True)
 # Creación de los botones del tablero
 botones = []
 for i in range(9):
-    boton = tk.Button(ventana, text='', font=('Helvetica', 32), width=5, height=2,
-                      command=lambda i=i: click_boton(i))
+    boton = tk.Button(ventana, text='', font=('Helvetica', 32), width=5, height=2, command=lambda i=i: click_boton(i))
     boton.grid(row=i//3, column=i%3)
     botones.append(boton)
 
